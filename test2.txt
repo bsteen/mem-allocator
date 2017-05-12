@@ -1,0 +1,36 @@
+COELALSING
+0xf69f4010: header: [8:a] footer: [8:a]
+0xf69f4018: header: [4096:f] footer: [4096:f]
+
+Heap initialized
+0xf69f4010: header: [8:a] footer: [8:a]
+0xf69f4018: header: [4096:f] footer: [4096:f]
+
+COELALSING
+0xf69f4010: header: [8:a] footer: [8:a]
+0xf69f4018: header: [2048:a] footer: [2048:a]
+0xf69f4818: header: [2048:f] footer: [2048:f]
+
+COELALSING
+0xf69f4010: header: [8:a] footer: [8:a]
+0xf69f4018: header: [2048:a] footer: [2048:a]
+0xf69f4818: header: [56:a] footer: [56:a]
+0xf69f4850: header: [1992:f] footer: [1992:f]
+0xf69f5018: header: [4096:f] footer: [4096:f]
+
+0xf69f4010: header: [8:a] footer: [8:a]
+0xf69f4018: header: [2048:a] footer: [2048:a]
+0xf69f4818: header: [56:a] footer: [56:a]
+0xf69f4850: header: [6088:f] footer: [6088:f]
+DONE COELALSING
+
+COELALSING
+0xf69f4010: header: [8:a] footer: [8:a]
+0xf69f4018: header: [2048:a] footer: [2048:a]
+0xf69f4818: header: [56:a] footer: [56:a]
+0xf69f4850: header: [4080:f] footer: [4080:f]
+0xf69f5840: header: [2008:f] footer: [2008:f]
+
+Program received signal SIGSEGV, Segmentation fault.
+del_free_list_node (bp=0xf69f6018) at mm.c:202
+202	    PUT(NEXT(prev),next);

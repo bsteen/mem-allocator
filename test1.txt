@@ -1,0 +1,94 @@
+COELALSING
+0xf69f4010: header: [8:a] footer: [8:a]
+0xf69f4018: header: [4096:f] footer: [4096:f]
+
+Heap initialized
+0xf69f4010: header: [8:a] footer: [8:a]
+0xf69f4018: header: [4096:f] footer: [4096:f]
+
+COELALSING
+0xf69f4010: header: [8:a] footer: [8:a]
+0xf69f4018: header: [2048:a] footer: [2048:a]
+0xf69f4818: header: [2048:f] footer: [2048:f]
+
+COELALSING
+0xf69f4010: header: [8:a] footer: [8:a]
+0xf69f4018: header: [2048:a] footer: [2048:a]
+0xf69f4818: header: [56:a] footer: [56:a]
+0xf69f4850: header: [1992:f] footer: [1992:f]
+0xf69f5018: header: [4096:f] footer: [4096:f]
+
+0xf69f4010: header: [8:a] footer: [8:a]
+0xf69f4018: header: [2048:a] footer: [2048:a]
+0xf69f4818: header: [56:a] footer: [56:a]
+0xf69f4850: header: [6088:f] footer: [6088:f]
+DONE COELALSING
+
+COELALSING
+0xf69f4010: header: [8:a] footer: [8:a]
+0xf69f4018: header: [2048:a] footer: [2048:a]
+0xf69f4818: header: [56:a] footer: [56:a]
+0xf69f4850: header: [4080:f] footer: [4080:f]
+0xf69f5840: header: [2008:f] footer: [2008:f]
+
+0xf69f4010: header: [8:a] footer: [8:a]
+0xf69f4018: header: [2048:a] footer: [2048:a]
+0xf69f4818: header: [56:a] footer: [56:a]
+0xf69f4850: header: [6088:f] footer: [6088:f]
+DONE COELALSING
+
+COELALSING
+0xf69f4010: header: [8:a] footer: [8:a]
+0xf69f4018: header: [2048:f] footer: [2048:f]
+0xf69f4818: header: [56:a] footer: [56:a]
+0xf69f4850: header: [4080:a] footer: [4080:a]
+0xf69f5840: header: [2008:f] footer: [2008:f]
+
+COELALSING
+0xf69f4010: header: [8:a] footer: [8:a]
+0xf69f4018: header: [2048:f] footer: [2048:f]
+0xf69f4818: header: [56:f] footer: [56:f]
+0xf69f4850: header: [4080:a] footer: [4080:a]
+0xf69f5840: header: [2008:f] footer: [2008:f]
+
+0xf69f4010: header: [8:a] footer: [8:a]
+0xf69f4018: header: [2104:f] footer: [2104:f]
+0xf69f4850: header: [4080:a] footer: [4080:a]
+0xf69f5840: header: [2008:f] footer: [2008:f]
+DONE COELALSING
+
+COELALSING
+0xf69f4010: header: [8:a] footer: [8:a]
+0xf69f4018: header: [2104:f] footer: [2104:f]
+0xf69f4850: header: [4080:a] footer: [4080:a]
+0xf69f5840: header: [2008:f] footer: [2008:f]
+0xf69f6018: header: [4096:f] footer: [4096:f]
+
+0xf69f4010: header: [8:a] footer: [8:a]
+0xf69f4018: header: [2104:f] footer: [2104:f]
+0xf69f4850: header: [4080:a] footer: [4080:a]
+0xf69f5840: header: [6104:f] footer: [6104:f]
+DONE COELALSING
+
+COELALSING
+0xf69f4010: header: [8:a] footer: [8:a]
+0xf69f4018: header: [2104:f] footer: [2104:f]
+0xf69f4850: header: [4080:f] footer: [4080:f]
+0xf69f5840: header: [4080:a] footer: [4080:a]
+0xf69f6830: header: [2024:f] footer: [2024:f]
+
+0xf69f4010: header: [8:a] footer: [8:a]
+0xf69f4018: header: [6184:f] footer: [6184:f]
+0xf69f5840: header: [4080:a] footer: [4080:a]
+0xf69f6830: header: [2024:f] footer: [2024:f]
+DONE COELALSING
+
+COELALSING
+0xf69f4010: header: [8:a] footer: [8:a]
+0xf69f4018: header: [6184:f] footer: [6184:f]
+0xf69f5840: header: [4080:f] footer: [4080:f]
+0xf69f6830: header: [2024:f] footer: [2024:f]
+
+0xf69f4010: header: [8:a] footer: [8:a]
+0xf69f4018: header: [12288:f] footer: [12288:f]
+DONE COELALSING

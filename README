@@ -1,0 +1,84 @@
+#####################################################################
+# CS:APP Malloc Lab
+# Handout files for students
+#
+# Copyright (c) 2002, R. Bryant and D. O'Hallaron, All rights reserved.
+# May not be used, modified, or copied without permission.
+#
+######################################################################
+
+
+*******************************
+Important !!!!
+*******************************
+
+Before submitting your program on sakai, rename it to YourLastName_mm.c (replace your last name with YourLastName) and submit. Please do not submit a program named mm.c, it will result in a score of 0.
+
+
+***********
+Main Files:
+***********
+
+mm.{c,h}	
+	Your solution malloc package. mm.c is the file that you
+	will be handing in, and is the only file you should modify. Change the file name to YourLastName_mm.c before submitting it on Sakai. Submission of a single file named mm.c will result in a score of 0.
+
+mdriver.c	
+	The malloc driver that tests your mm.c file
+
+short{1,2}-bal.rep
+	Two tiny tracefiles to help you get started. 
+
+Makefile	
+	Builds the driver
+
+**********************************
+Other support files for the driver
+**********************************
+
+config.h	Configures the malloc lab driver
+fsecs.{c,h}	Wrapper function for the different timer packages
+clock.{c,h}	Routines for accessing the Pentium and Alpha cycle counters
+fcyc.{c,h}	Timer functions based on cycle counters
+ftimer.{c,h}	Timer functions based on interval timers and gettimeofday()
+memlib.{c,h}	Models the heap and sbrk function
+
+tmp folder  To store the temporary folder when you run the command ./grade-malloclab.pl -f ./mm.c
+traces folder   Trace files to be used for testing your program
+grade-malloclab.pl      This is the malloc lab's autograder.  To run the autograder:
+                                        unix> ./grade-malloclab.pl -f ./mm.c 
+
+
+*******************************
+Building and running the driver
+*******************************
+To build the driver, type "make" to the shell.
+
+To run the driver on a tiny test trace:
+
+	unix> ./mdriver -V -f short1-bal.rep
+
+The -V option prints out helpful tracing and summary information.
+
+To get a list of the driver flags:
+
+	unix> ./mdriver -h
+
+*******************************
+Evaluating your program
+*******************************
+To help you evaluate your program, we add the autograder in the handout folder. To evaluate your program, do:
+
+
+	unix> ./grade-malloclab.pl -f ./mm.c
+
+
+If your program satisfies all the requirements, you will see the following:
+
+Part 3: Grade
+
+Correctness:  20  /  20 
+Performance:  35  /  35 
+Style:            /  10
+
+Before submitting your program on sakai, rename it to YourLastName_mm.c (replace your last name with YourLastName) and submit it on Sakai. Please do not submit a program named mm.c, it will result in a score of 0.
