@@ -81,7 +81,6 @@ team_t team = {
 #define PREV_BLKP(bp) ((char *)(bp) - GET_SIZE(((char *)(bp) - DSIZE)))//location of prev block
 #define PREV(bp) ((char *) (bp))//prev pointer for free list location
 #define NEXT(bp) ((char *) (bp)+WSIZE)//next pointer for free list location
-#define DEBUGx //if DEBUG is defined, prints out heap at each step
 
 static int CHUNK_SIZE = DEFAULT_CHUNK;//Chunks size variable
 static void * free_list_head=NULL;//head of free list
@@ -100,47 +99,8 @@ static void createFreeBlock(void * bp,size_t asize);
 static void reserveOnlySmallBlock();
 static void createAllocBlock(void * bp,size_t asize);
 static void createAllocBlockWithData(void * bp,size_t size, void * data);
-static void printfreelist();
 static void place_into_allocated_block(void* bp, size_t asize);
 int mm_check();
-
-static void printblock(void *bp)
-{
-    size_t hsize, halloc, fsize, falloc;
-
-    hsize = GET_SIZE(HDRP(bp));
-    halloc = GET_ALLOC(HDRP(bp));
-    fsize = GET_SIZE(FTRP(bp));
-    falloc = GET_ALLOC(FTRP(bp));
-
-    if (hsize == 0) {
-        printf("%p: EOL\n", bp);
-        return;
-    }
-
-    printf("%p: header: [%i:%c] footer: [%i:%c]\n", bp,
-    hsize, (halloc ? 'a' : 'f'),
-    fsize, (falloc ? 'a' : 'f'));
-}
-static void  printheap(){
-    void * bp;
-    for(bp=heap_listp;GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp)){
-        printblock(bp);
-    }
-    printf("\t\t\t\t\t\t\t");
-    printfreelist();
-}
-
-static void printfreelist(){
-    void* bp;
-    printf("Free List [");
-    for(bp=free_list_head;bp!=NULL; bp = (void*)GET(NEXT(bp))){
-        printf("%p : %i, ",bp, GET_SIZE(HDRP(bp)));
-
-    }
-    printf("\b\b]\n");
-
-}
 
 /*   mm_init
 •initializes the heap. Creates one free block of DEFAULT_CHUNK size and also
@@ -165,10 +125,6 @@ int mm_init(void)
         return -1;
     }
     reserveOnlySmallBlock();
-    #ifdef DEBUG
-    printf("\nHeap initialized\n");
-    printheap();
-    #endif
     return 0;
 }
 
@@ -198,11 +154,6 @@ void *mm_malloc(size_t size)
     // if(!mm_check()){ //Check heap consistency
     //     exit(1);
     // }
-
-    #ifdef DEBUG
-    printf("malloc %i\n",size);
-    printheap();
-    #endif
 
     size_t asize;
     size_t extendsize;
@@ -286,18 +237,10 @@ void mm_free(void *ptr)
     // }
 
     size_t size = GET_SIZE(HDRP(ptr));
-    #ifdef DEBUG
-    printf("freeing %i\n",size);
-    printheap();
-    #endif
 
     createFreeBlock(ptr,size);
     coalesce(ptr);
 
-    #ifdef DEBUG
-    printf("freed %i\n",size);
-    printheap();
-    #endif
 }
 
 /*  mm_realloc
@@ -316,16 +259,8 @@ void *mm_realloc(void *ptr, size_t size)
     // if(!mm_check()){ //Check heap consistency
     //     exit(1);
     // }
-    #ifdef DEBUG
-    printf("re-malloc (%p)%i\n",ptr,size);
-    printheap();
-    #endif
 
     if(ptr==NULL){
-        #ifdef DEBUG
-        printf("re-alloacted %i\n",size);
-        printheap();
-        #endif
         return mm_malloc(size);
     }
 
@@ -346,10 +281,6 @@ void *mm_realloc(void *ptr, size_t size)
 
     if(asize < cur_size){ //The block size is being decreased
         place_into_allocated_block(ptr,asize);
-        #ifdef DEBUG
-        printf("re-alloacted %i\n",size);
-        printheap();
-        #endif
         return ptr;
     }
     else if(!GET_ALLOC(HDRP(NEXT_BLKP(ptr)))){//increasing block size and next block is free
@@ -363,20 +294,12 @@ void *mm_realloc(void *ptr, size_t size)
                 PUT(FTRP(ptr),PACK(asize,1));
                 void * freeptr= NEXT_BLKP(ptr);
                 createFreeBlock(freeptr,next_blk_size-extra_space);
-                #ifdef DEBUG
-                printf("re-alloacted %i\n",size);
-                printheap();
-                #endif
                 return ptr;
             }
             else if(next_blk_size == (asize - cur_size)){//block is just large enough
                 del_free_list_node(NEXT_BLKP(ptr));
                 PUT(HDRP(ptr),PACK(asize,1));
                 PUT(FTRP(ptr),PACK(asize,1));
-                #ifdef DEBUG
-                printf("re-alloacted %i\n",size);
-                printheap();
-                #endif
                 return ptr;
             }
         }
@@ -391,20 +314,11 @@ void *mm_realloc(void *ptr, size_t size)
                 createAllocBlockWithData(prev_blk,asize,ptr);
                 void * freeptr= NEXT_BLKP(prev_blk);
                 createFreeBlock(freeptr,total_size-asize);
-
-                #ifdef DEBUG
-                printf("re-alloacted %i\n",size);
-                printheap();
-                #endif
                 return prev_blk;
 
             }
             else if(GET_SIZE(HDRP(prev_blk)) == (asize - cur_size)){//block is just large enough
                 createAllocBlockWithData(prev_blk,asize,ptr);
-                #ifdef DEBUG
-                printf("re-alloacted %i\n",size);
-                printheap();
-                #endif
                 return prev_blk;
             }
         }
@@ -417,12 +331,6 @@ void *mm_realloc(void *ptr, size_t size)
     int * new = (int *)mm_malloc(size);
     copy(ptr,new);
     mm_free(ptr);
-
-    #ifdef DEBUG
-    printf("re-alloacted %i\n",size);
-    printheap();
-    #endif
-
     return new;
 }
 
@@ -747,10 +655,6 @@ static void place(void* bp, size_t asize){
     }else{
         createAllocBlock(bp,csize);
     }
-    #ifdef DEBUG
-    printf("Placed %i\n",asize);
-    printheap();
-    #endif
 
 }
 
@@ -771,8 +675,4 @@ static void place_into_allocated_block(void* bp, size_t asize){
         PUT(HDRP(bp),PACK(csize,1));
         PUT(FTRP(bp),PACK(csize,1));
     }
-    #ifdef DEBUG
-    printf("Placed %i\n",asize);
-    printheap();
-    #endif
 }
