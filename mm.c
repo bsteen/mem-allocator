@@ -232,17 +232,17 @@ void *mm_malloc(size_t size)
             PUT(FTRP(only_small_blk),PACK(csize,1));
             reserveOnlySmallBlock();
             return ret_val;
-        }else if(asize > csize){
-            // printf("here");
-            // mm_free(only_small_blk);
-            // reserveOnlySmallBlock();
-            // void * ret_val = only_small_blk;
-            // PUT(HDRP(only_small_blk),PACK(asize,1));
-            // PUT(FTRP(only_small_blk),PACK(asize,1));
-            // only_small_blk=NEXT_BLKP(only_small_blk);
-            // PUT(HDRP(only_small_blk),PACK(csize-asize,1));
-            // PUT(FTRP(only_small_blk),PACK(csize-asize,1));
-            // return ret_val;
+        }else if(asize > csize){//rare case where need to free remaining small container and make a new one
+            mm_free(only_small_blk);
+            reserveOnlySmallBlock();
+            void * ret_val = only_small_blk;
+            csize = GET_SIZE(HDRP(only_small_blk));
+            PUT(HDRP(only_small_blk),PACK(asize,1));
+            PUT(FTRP(only_small_blk),PACK(asize,1));
+            only_small_blk=NEXT_BLKP(only_small_blk);
+            PUT(HDRP(only_small_blk),PACK(csize-asize,1));//the block is allocated to create a container for small blocks
+            PUT(FTRP(only_small_blk),PACK(csize-asize,1));
+            return ret_val;
         }
     }
     if((bp= find_fit(asize)) != NULL){//looks for block to place it in
@@ -317,7 +317,7 @@ void *mm_realloc(void *ptr, size_t size)
     //     exit(1);
     // }
     #ifdef DEBUG
-    printf("re-malloc %i\n",size);
+    printf("re-malloc (%p)%i\n",ptr,size);
     printheap();
     #endif
 
