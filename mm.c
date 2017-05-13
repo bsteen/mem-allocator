@@ -1,17 +1,29 @@
 /*
-
 mm.c -
 This is our memory allocator.  It contains the following features:
-
   •Allocated Blocks contain header,footer, and payload
   •Explicit Free List for free blocks
     -Minimum block size is 16 bytes (header,prev,next,footer)
     -prev and next pointers stored in free block payload area
     -new free blocks are inserted at beginning of explicit free list
-  •Placement Policty
-
-
+  •Placement Policy
+    -if the free list size is less than BEST_FIT_THRESHOLD, then the allocator
+     uses a best fit search of the free list to place an allocated block
+    -otherwise, it uses first fit
+    -the free block found is deleted from the free list
+  •Dynamic Chunk Sizing (size of heap extension)
+    -This is another feauture we added for both throughput and space effeciancy
+    -The chunk size will gravitate towards the average request size
+    -This helps with external fragmentation (prevents allocating excessively large chunks)
+  •Grouping Small blocks
+    -We reserve special places in the heap for small blocks only
+    -This prevents small splinters from forming in between larger blocks
+      and being unusable after freeing
+    -When grouped, small blocks with coalesce into a larger one and it is more
+      likely that the block can be re-used
+  •Immediate Coalesing is used
 */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
@@ -46,37 +58,32 @@ team_t team = {
 /* rounds up to the nearest multiple of ALIGNMENT */
 #define ALIGN(size) (((size) + (ALIGNMENT-1)) & ~0x7)
 #define MIN_BLOCK_SIZE 16
-#define ONLY_SMALL_BLK_SIZE 1500 //
-#define BEST_FIT_THRESHOLD 25
-#define MIN_CHUNK (1<<9)
-#define MAX_CHUNK (1<<30)
-#define DEFAULT_CHUNK (1<<11)
-#define CHUNK_UPDATE_AMT 1024
-#define PADDING 512
-#define MAX(x,y) ((x) > (y)? (x) : (y))
-#define PACK(size,alloc) ((size) | (alloc))
-#define GET(p) (*(unsigned int *)(p))
-#define PUT(p,val) (*(unsigned int *)(p) = (val))
-#define ONLY_SMALL 0x2
-#define GET_SIZE(p) (GET(p) & ~0x7)
-#define GET_ALLOC(p) (GET(p) & 0x1)
+#define ONLY_SMALL_BLK_SIZE 1500 //size of reserved block for small blocks only
+#define BEST_FIT_THRESHOLD 25 //threshold size of free list for choosing first fit instead of best fit
+#define MIN_CHUNK (1<<9)//min chunk size for extending heap
+#define MAX_CHUNK (1<<30)//max chunk size for extending heap
+#define DEFAULT_CHUNK (1<<11)//default chunk size for extending heap
+#define CHUNK_UPDATE_AMT 1024 //how much to change CHUNK_SIZE at a time
+#define MAX(x,y) ((x) > (y)? (x) : (y))//max of two things
+#define PACK(size,alloc) ((size) | (alloc))//used for making headers and footers
+#define GET(p) (*(unsigned int *)(p))//gets p because b is a void *
+#define PUT(p,val) (*(unsigned int *)(p) = (val))//puts val into p pointer
+#define GET_SIZE(p) (GET(p) & ~0x7)//Extracts size from pointer
+#define GET_ALLOC(p) (GET(p) & 0x1)//Extracts alloc bit from pointer
+#define HDRP(bp) ((char *)(bp) - WSIZE)//location of header
+#define FTRP(bp) ((char *)(bp) + GET_SIZE(HDRP(bp)) - DSIZE)//location of footer
+#define NEXT_BLKP(bp) ((char *)(bp) + GET_SIZE(((char *)(bp) - WSIZE)))//location of next block
+#define PREV_BLKP(bp) ((char *)(bp) - GET_SIZE(((char *)(bp) - DSIZE)))//location of prev block
+#define PREV(bp) ((char *) (bp))//prev pointer for free list location
+#define NEXT(bp) ((char *) (bp)+WSIZE)//next pointer for free list location
+#define DEBUGx //if DEBUG is defined, prints out heap at each step
 
-#define HDRP(bp) ((char *)(bp) - WSIZE)
-#define FTRP(bp) ((char *)(bp) + GET_SIZE(HDRP(bp)) - DSIZE)
+static int CHUNK_SIZE = DEFAULT_CHUNK;//Chunks size variable
+static void * free_list_head=NULL;//head of free list
+static void * only_small_blk=NULL;//location of block reserved from small blocks
+static unsigned long long free_list_size=0;//keeps track of the free list size
+static char * heap_listp=NULL;//start of heap
 
-
-#define NEXT_BLKP(bp) ((char *)(bp) + GET_SIZE(((char *)(bp) - WSIZE)))
-#define PREV_BLKP(bp) ((char *)(bp) - GET_SIZE(((char *)(bp) - DSIZE)))
-
-#define PREV(bp) ((char *) (bp))
-#define NEXT(bp) ((char *) (bp)+WSIZE)
-
-#define DEBUGx
-static int CHUNK_SIZE = DEFAULT_CHUNK; //512KB
-static void * free_list_head=NULL;
-static void * only_small_blk=NULL;
-static unsigned long long free_list_size=0;
-static char * heap_listp=NULL;
 static void * extend_heap(size_t words);
 static void * coalesce(void * bp);
 static void * find_fit(size_t asize);
@@ -89,9 +96,7 @@ static void reserveOnlySmallBlock();
 static void createAllocBlock(const void * bp,size_t asize);
 static void createAllocBlockWithData(const void * bp,size_t size,const void * data);
 static void printfreelist();
-// /*
-// * mm_init - initialize the malloc package.
-// */
+
 static void printblock(void *bp)
 {
     size_t hsize, halloc, fsize, falloc;
@@ -130,6 +135,12 @@ static void printfreelist(){
 
 }
 
+
+/*
+  •initializes the heap.  creates one free block of DEFAULT_CHUNK size and also
+    allocates space for only small blocks.
+  •returns -1 on error, 0 otherwise
+*/
 int mm_init(void)
 {
   free_list_head=NULL;
@@ -140,9 +151,9 @@ int mm_init(void)
   CHUNK_SIZE =DEFAULT_CHUNK;
   PUT(heap_listp,0);
   free_list_size=0;
-  PUT(heap_listp + (1*WSIZE), PACK(DSIZE,3));
-  PUT(heap_listp + (2*WSIZE), PACK(DSIZE,1));
-  PUT(heap_listp + (3*WSIZE), PACK(0,1));
+  PUT(heap_listp + (1*WSIZE), PACK(DSIZE,1));//prolouge block header
+  PUT(heap_listp + (2*WSIZE), PACK(DSIZE,1));//prolouge block footer
+  PUT(heap_listp + (3*WSIZE), PACK(0,1));//epilogue block (size 0, allocated)
   heap_listp += (2*WSIZE);
   if((extend_heap(CHUNK_SIZE/WSIZE)) == NULL){
     return -1;
@@ -155,6 +166,11 @@ int mm_init(void)
   return 0;
 }
 
+/*
+  •Extends heap.  calls mem_sbrk function to alloacate more space on the heap.
+    returns a pointer to the new free block just created.  Also re-creates the epilogue block
+    of the heap.
+*/
 static void * extend_heap(size_t words){
   char * bp;
   size_t size;
@@ -173,26 +189,35 @@ static void * extend_heap(size_t words){
 }
 
 
+/*
+    •merges free blocks together to create larger free blocks and reduces external
+     fragmentation.
+    •For example, if FFF -> F
+                    AFF -> AF
+                    FFA -> FA
+                    AFA -> AFA
+    •this gets called whenever the heap is extended, or a block is freed (immediate coalescing)
+    •updates free_list pointers and block headers/footers
+    •returns a pointer to the updated free block
 
-
+*/
 static void * coalesce(void * bp){
   size_t prev_alloc = GET_ALLOC(FTRP(PREV_BLKP(bp)));
   size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(bp)));
   size_t size= GET_SIZE(HDRP(bp));
 
-  if (prev_alloc && next_alloc) {/* Case 1 */
+  if (prev_alloc && next_alloc) {/* Case 1 prev and next block allocated*/
     return bp;
   }
 
-  else if (prev_alloc && !next_alloc) {/* Case 2 */
+  else if (prev_alloc && !next_alloc) {/* Case 2 prev block allocated, next block free*/
     del_free_list_node(NEXT_BLKP(bp));
     size+= GET_SIZE(HDRP(NEXT_BLKP(bp)));
     PUT(HDRP(bp), PACK(size,0));
     PUT(FTRP(bp), PACK(size,0));
   }
-  else if (!prev_alloc && next_alloc) { /* Case 3 */
+  else if (!prev_alloc && next_alloc) { /* Case 3 prev block free, next block allocated*/
     del_free_list_node(PREV_BLKP(bp));
-    int prev2_alloc =(GET(HDRP(PREV_BLKP(bp))))&2;
     PUT(PREV(PREV_BLKP(bp)),GET(PREV(bp)));
     PUT(NEXT(PREV_BLKP(bp)),GET(NEXT(bp)));
     void * next = GET(NEXT(bp));
@@ -202,13 +227,10 @@ static void * coalesce(void * bp){
     PUT(FTRP(bp), PACK(size,0));
     PUT(HDRP(PREV_BLKP(bp)), PACK(size,0));
     bp = PREV_BLKP(bp);
-    if(prev2_alloc){
-
-    }
     free_list_head = bp;
 
   }
-  else {/* Case 4 */
+  else {/* Case 4 both prev and next blocks free*/
     size += GET_SIZE(HDRP(PREV_BLKP(bp))) + GET_SIZE(FTRP(NEXT_BLKP(bp)));
     del_free_list_node(PREV_BLKP(bp));
     del_free_list_node(NEXT_BLKP(bp));
@@ -224,6 +246,9 @@ static void * coalesce(void * bp){
   }
   return bp;
 }
+/*
+    •deletes a node from the free list.  Updates next and prev pointers
+*/
 static void del_free_list_node(void* bp){
   void * prev = GET(PREV(bp));
   void * next = GET(NEXT(bp));
@@ -239,6 +264,10 @@ static void del_free_list_node(void* bp){
  --free_list_size;
 }
 
+/*
+    •inserts a node into the free list at the beginning
+    •updates the free_list_head pointer to point to bp
+*/
 static void ins_free_list_node(void *bp){
   if(free_list_head!=NULL){
     PUT(PREV(free_list_head),bp);
@@ -248,14 +277,22 @@ static void ins_free_list_node(void *bp){
   free_list_head=bp;
   ++free_list_size;
 }
-
+/*
+    •marks a block as free by updating header and footer, and then
+     adds to the free list
+*/
 static void createFreeBlock(const void * bp,size_t size){
   PUT(HDRP(bp),PACK(size,0));
   PUT(FTRP(bp),PACK(size,0));
   ins_free_list_node(bp);
-
-
 }
+
+/*
+    •creates a section in the heap that only small items can be places
+        newly created section is marked as allocated so that it doesn't get
+        coalesced.
+    •only_small_blk pointer is updated.
+*/
 static void reserveOnlySmallBlock(){
   void* bp = mm_malloc(ONLY_SMALL_BLK_SIZE);
   PUT(HDRP(bp),PACK(GET_SIZE(HDRP(bp)),1) );
@@ -263,21 +300,48 @@ static void reserveOnlySmallBlock(){
   only_small_blk=bp;
 }
 
+/*
+    •marks a block as allocated by updateing header and footer
+    •deletes block from the free list
+*/
 static void createAllocBlock(const void * bp,size_t size){
   PUT(HDRP(bp),PACK(size,1));
   PUT(FTRP(bp),PACK(size,1));
   del_free_list_node(bp);
 
 }
+
+/*
+    •same as createAllocBlock, but also copys data from old block into new block
+    •calls copy function
+*/
 static void createAllocBlockWithData(const void * bp,size_t size,const void * data){
   del_free_list_node(bp);
   PUT(HDRP(bp),PACK(size,1));
   copy(data,bp);
   PUT(FTRP(bp),PACK(size,1));
 }
+
 /*
-* mm_malloc - Allocate a block by incrementing the brk pointer.
-*     Always allocate a block whose size is a multiple of the alignment.
+•allocates a block according to all polocies listed the the header comment of this file
+•Placement Policy
+  -if the free list size is less than BEST_FIT_THRESHOLD, then the allocator
+   uses a best fit search of the free list to place an allocated block
+  -otherwise, it uses first fit
+  -the free block found is deleted from the free list
+•Dynamic Chunk Sizing (size of heap extension)
+  -This is another feauture we added for both throughput and space effeciancy
+  -The chunk size will gravitate towards the average request size
+  -This helps with external fragmentation (prevents allocating excessively large chunks)
+•Grouping Small blocks
+  -We reserve special places in the heap for small blocks only
+  -This prevents small splinters from forming in between larger blocks
+    and being unusable after freeing
+  -When grouped, small blocks with coalesce into a larger one and it is more
+    likely that the block can be re-used
+•Immediate Coalesing is used
+
+ •returns a pointer to the newly allocated block
 */
 void *mm_malloc(size_t size)
 {
@@ -292,22 +356,20 @@ void *mm_malloc(size_t size)
     return NULL;
   }
 
-  asize = ALIGN(size) + 8;
+  asize = ALIGN(size) + 8;//alignes to double word
   if(asize < MIN_BLOCK_SIZE){
     asize = MIN_BLOCK_SIZE;
   }
   if(asize < 100){//special spot for small items
-    //printf("%i\n",asize);
     int csize = GET_SIZE(HDRP(only_small_blk));
     if(asize < csize && (csize - asize) >= MIN_BLOCK_SIZE){
       void * ret_val = only_small_blk;
       PUT(HDRP(only_small_blk),PACK(asize,1));
       PUT(FTRP(only_small_blk),PACK(asize,1));
       only_small_blk=NEXT_BLKP(only_small_blk);
-      PUT(HDRP(only_small_blk),PACK(csize-asize,1));
+      PUT(HDRP(only_small_blk),PACK(csize-asize,1)); //allocated so doesn't get messed with
       PUT(FTRP(only_small_blk),PACK(csize-asize,1));
       return ret_val;
-      //allocated so doesn't get messed with
     }else if(asize <=csize){
       void * ret_val = only_small_blk;
       PUT(HDRP(only_small_blk),PACK(csize,1));
@@ -327,15 +389,15 @@ void *mm_malloc(size_t size)
       // return ret_val;
     }
   }
-  if((bp= find_fit(asize)) != NULL){
+  if((bp= find_fit(asize)) != NULL){//looks for block to place it in
     place(bp,asize);
     return bp;
   }
 
   extendsize = MAX(asize,CHUNK_SIZE);
-  if(asize<(CHUNK_SIZE+PADDING)){
+  if(asize<(CHUNK_SIZE+CHUNK_UPDATE_AMT)){
     CHUNK_SIZE+=CHUNK_UPDATE_AMT;
-  }else if ((asize-PADDING) > CHUNK_SIZE){
+  }else if ((asize-CHUNK_UPDATE_AMT) > CHUNK_SIZE){
     CHUNK_SIZE-=CHUNK_UPDATE_AMT;
   }
   if(CHUNK_SIZE > MAX_CHUNK){
@@ -436,7 +498,23 @@ void mm_free(void *ptr)
 }
 
 /*
-* mm_realloc - Implemented simply in terms of mm_malloc and mm_free
+•Placement Policy
+  -if the free list size is less than BEST_FIT_THRESHOLD, then the allocator
+   uses a best fit search of the free list to place an allocated block
+  -otherwise, it uses first fit
+  -the free block found is deleted from the free list
+•Dynamic Chunk Sizing (size of heap extension)
+  -This is another feauture we added for both throughput and space effeciancy
+  -The chunk size will gravitate towards the average request size
+  -This helps with external fragmentation (prevents allocating excessively large chunks)
+•Grouping Small blocks
+  -We reserve special places in the heap for small blocks only
+  -This prevents small splinters from forming in between larger blocks
+    and being unusable after freeing
+  -When grouped, small blocks with coalesce into a larger one and it is more
+    likely that the block can be re-used
+•Immediate Coalesing is used
+
 */
 void *mm_realloc(void *ptr, size_t size)
 {
@@ -474,10 +552,6 @@ void *mm_realloc(void *ptr, size_t size)
   }
   else if(!GET_ALLOC(HDRP(NEXT_BLKP(ptr)))){//next block is free
     size_t next_blk_size = GET_SIZE(HDRP(NEXT_BLKP(ptr)));
-
-
-
-
     int extra_space = asize - cur_size;
     if( next_blk_size>=extra_space ){//block is large enough
       if((next_blk_size-extra_space) >= MIN_BLOCK_SIZE ){
