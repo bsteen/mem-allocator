@@ -1,5 +1,10 @@
 /*
-mm.c -
+Abraham McIlvaine and Benjamin Steenkamer
+CISC 361-010
+Lab 2
+
+mm.c - Dynamic Storage Allocator
+
 This is our memory allocator.  It contains the following features:
 •Allocated Blocks contain header,footer, and payload
 •Explicit Free List for free blocks
@@ -12,7 +17,7 @@ uses a best fit search of the free list to place an allocated block
 -otherwise, it uses first fit
 -the free block found is deleted from the free list
 •Dynamic Chunk Sizing (size of heap extension)
--This is another feauture we added for both throughput and space effeciancy
+-This is another feature we added for both throughput and space efficiency
 -The chunk size will gravitate towards the average request size
 -This helps with external fragmentation (prevents allocating excessively large chunks)
 •Grouping Small blocks
@@ -21,7 +26,7 @@ uses a best fit search of the free list to place an allocated block
 and being unusable after freeing
 -When grouped, small blocks with coalesce into a larger one and it is more
 likely that the block can be re-used
-•Immediate Coalesing is used
+•Immediate Coalescing is used to combine free blocks and reduce external fragmentation
 */
 
 #include <stdio.h>
@@ -39,7 +44,7 @@ likely that the block can be re-used
 ********************************************************/
 team_t team = {
     /* Team name */
-    "TEAM --->>> (Abraham McIlvaine and Benjamin Steenkamer)",
+    "Abraham McIlvaine and Benjamin Steenkamer",
     /* First member's full name */
     "Abraham McIlvaine",
     /* First member's email address */
@@ -138,7 +143,7 @@ static void printfreelist(){
 }
 
 /*   mm_init
-•initializes the heap.  creates one free block of DEFAULT_CHUNK size and also
+•initializes the heap. Creates one free block of DEFAULT_CHUNK size and also
 allocates space for only small blocks.
 •returns -1 on error, 0 otherwise
 */
@@ -168,14 +173,14 @@ int mm_init(void)
 }
 
 /* mm_malloc
-•allocates a block according to all polocies listed the the header comment of this file
+•allocates a block according to all policies listed the the header comment of this file
 •Placement Policy
 -if the free list size is less than BEST_FIT_THRESHOLD, then the allocator
 uses a best fit search of the free list to place an allocated block
 -otherwise, it uses first fit
 -the free block found is deleted from the free list
 •Dynamic Chunk Sizing (size of heap extension)
--This is another feauture we added for both throughput and space effeciancy
+-This is another feature we added for both throughput and space efficiency
 -The chunk size will gravitate towards the average request size
 -This helps with external fragmentation (prevents allocating excessively large chunks)
 •Grouping Small blocks
@@ -184,31 +189,33 @@ uses a best fit search of the free list to place an allocated block
 and being unusable after freeing
 -When grouped, small blocks with coalesce into a larger one and it is more
 likely that the block can be re-used
-•Immediate Coalesing is used
+•Immediate Coalescing is used
 •return blocks are 8 byte aligned
 •returns a pointer to the newly allocated block of at least size bytes
 */
 void *mm_malloc(size_t size)
 {
-    if(!mm_check()){ //Check heap consistency
-        exit(1);
-    }
+    // if(!mm_check()){ //Check heap consistency
+    //     exit(1);
+    // }
 
     #ifdef DEBUG
     printf("malloc %i\n",size);
     printheap();
     #endif
+
     size_t asize;
     size_t extendsize;
     char * bp;
-    if(size==0){
+    if(size==0){ //Do not allocate block for size of 0
         return NULL;
     }
 
     asize = ALIGN(size) + 8;//alignes to double word
     if(asize < MIN_BLOCK_SIZE){
-        asize = MIN_BLOCK_SIZE;
+        asize = MIN_BLOCK_SIZE; //Maintain minimum block size
     }
+
     if(asize < 100){//special spot for small items
         int csize = GET_SIZE(HDRP(only_small_blk));
         if(asize < csize && (csize - asize) >= MIN_BLOCK_SIZE){
@@ -216,10 +223,10 @@ void *mm_malloc(size_t size)
             PUT(HDRP(only_small_blk),PACK(asize,1));
             PUT(FTRP(only_small_blk),PACK(asize,1));
             only_small_blk=NEXT_BLKP(only_small_blk);
-            PUT(HDRP(only_small_blk),PACK(csize-asize,1)); //the block allocated so it creates a container for small blocks
+            PUT(HDRP(only_small_blk),PACK(csize-asize,1)); //the block is allocated to create a container for small blocks
             PUT(FTRP(only_small_blk),PACK(csize-asize,1));
             return ret_val;
-        }else if(asize <=csize){
+        }else if(asize <=csize){ //Create a new small block container if the old one is full
             void * ret_val = only_small_blk;
             PUT(HDRP(only_small_blk),PACK(csize,1));
             PUT(FTRP(only_small_blk),PACK(csize,1));
@@ -244,18 +251,20 @@ void *mm_malloc(size_t size)
     }
 
     //if here, find fit failed to find a usable free block
-    //extend the heap
+    //need to extend the heap
     extendsize = MAX(asize,CHUNK_SIZE);
     if(asize<(CHUNK_SIZE+CHUNK_UPDATE_AMT)){//dynamic updating of chunk size
         CHUNK_SIZE+=CHUNK_UPDATE_AMT;
     }else if ((asize-CHUNK_UPDATE_AMT) > CHUNK_SIZE){
         CHUNK_SIZE-=CHUNK_UPDATE_AMT;
     }
+
     if(CHUNK_SIZE > MAX_CHUNK){
         CHUNK_SIZE=MAX_CHUNK;
     }else if(CHUNK_SIZE < MIN_CHUNK){
         CHUNK_SIZE=MIN_CHUNK;
     }
+
     if((bp=extend_heap(extendsize/WSIZE)) == NULL){
         return NULL;
     }
@@ -266,28 +275,29 @@ void *mm_malloc(size_t size)
 }
 
 /* mm_free
-•frees a block pointed to by ptr and addes it to the free list
+•frees a block pointed to by ptr and adds it to the free list
 •Also, it coalesces the newly created free block.
-•only guarunteed to work of the pointer points to a valid allocated block
+•only guaranteed to work of the pointer points to a valid allocated block
 */
 void mm_free(void *ptr)
 {
-    if(!mm_check()){ //Check heap consistency
-        exit(1);
-    }
+    // if(!mm_check()){ //Check heap consistency
+    //     exit(1);
+    // }
 
     size_t size = GET_SIZE(HDRP(ptr));
     #ifdef DEBUG
     printf("freeing %i\n",size);
     printheap();
     #endif
+
     createFreeBlock(ptr,size);
     coalesce(ptr);
+
     #ifdef DEBUG
     printf("freed %i\n",size);
     printheap();
     #endif
-
 }
 
 /*  mm_realloc
@@ -295,22 +305,22 @@ void mm_free(void *ptr)
 •if ptr = null, equivalent to mm_malloc(size)
 •if size==0, equivalent to mm_free(ptr)
 •othersize, it either expands or shrinks the size of the block pointed to
-by ptr so that the returned block is equal to size
-•contents of the block are preserved up to minimum size of the old block
+by ptr so that the returned block is at least equal to size
+•contents of the block are preserved up to minimum size of the old block and new block
 •considers if the prev block is free, the next block is free
 •if can't use prev or next block, moves block to a new space
-•Returns a pointer to the newly reallocated block that is at least size bytes
-
+•Returns a pointer to the newly reallocated block that is at least "size" bytes
 */
 void *mm_realloc(void *ptr, size_t size)
 {
-    if(!mm_check()){ //Check heap consistency
-        exit(1);
-    }
+    // if(!mm_check()){ //Check heap consistency
+    //     exit(1);
+    // }
     #ifdef DEBUG
     printf("re-malloc %i\n",size);
     printheap();
     #endif
+
     if(ptr==NULL){
         #ifdef DEBUG
         printf("re-alloacted %i\n",size);
@@ -318,20 +328,23 @@ void *mm_realloc(void *ptr, size_t size)
         #endif
         return mm_malloc(size);
     }
+
     if(size==0){
         mm_free(ptr);
         return NULL;
     }
+
     size_t asize;
     if(size < MIN_BLOCK_SIZE){
         asize = MIN_BLOCK_SIZE;
     }else{
-        asize = ALIGN(size) +8;
+        asize = ALIGN(size) + 8;
     }
 
     size_t cur_size = GET_SIZE(HDRP(ptr));
 
-    if(asize < cur_size){
+
+    if(asize < cur_size){ //The block size is being decreased
         place_into_allocated_block(ptr,asize);
         #ifdef DEBUG
         printf("re-alloacted %i\n",size);
@@ -339,9 +352,10 @@ void *mm_realloc(void *ptr, size_t size)
         #endif
         return ptr;
     }
-    else if(!GET_ALLOC(HDRP(NEXT_BLKP(ptr)))){//next block is free
+    else if(!GET_ALLOC(HDRP(NEXT_BLKP(ptr)))){//increasing block size and next block is free
         size_t next_blk_size = GET_SIZE(HDRP(NEXT_BLKP(ptr)));
         int extra_space = asize - cur_size;
+
         if( next_blk_size>=extra_space ){//block is large enough
             if((next_blk_size-extra_space) >= MIN_BLOCK_SIZE ){
                 del_free_list_node(NEXT_BLKP(ptr));
@@ -366,12 +380,12 @@ void *mm_realloc(void *ptr, size_t size)
                 return ptr;
             }
         }
-
     }
-    else if(!GET_ALLOC(FTRP(PREV_BLKP(ptr)))){//prev block is free
+    else if(!GET_ALLOC(FTRP(PREV_BLKP(ptr)))){//increasing block size and prev block is free
         size_t prev_blk_size = GET_SIZE(HDRP(PREV_BLKP(ptr)));
         void * prev_blk = PREV_BLKP(ptr);
         int total_size = cur_size + prev_blk_size;
+
         if( total_size >= asize ){//block is large enough
             if((total_size-asize) >= MIN_BLOCK_SIZE ){
                 createAllocBlockWithData(prev_blk,asize,ptr);
@@ -392,38 +406,40 @@ void *mm_realloc(void *ptr, size_t size)
                 printheap();
                 #endif
                 return prev_blk;
-
             }
-
         }
-
     }
     else if(asize==cur_size){
         return ptr;
     }
-    //need to copy to new location
+
+    //need to copy old data to new block
     int * new = (int *)mm_malloc(size);
     copy(ptr,new);
     mm_free(ptr);
+
     #ifdef DEBUG
     printf("re-alloacted %i\n",size);
     printheap();
     #endif
+
     return new;
-
-
 }
+
 /*mm_check
-Used to check for invarients or inconsistancies in the heap.
+Used to check for invariants or inconsistencies in the heap.
 CHECKS the following:
 •check if every block in the free list is marked as free
-•are any contigues free blocks that escaped coalescing?
+•are any contiguous free blocks that escaped coalescing?
 •is every free block ACTUALLY in the FREE LIST?
 •DO pointers in the free list point to valid free blocks?
-•Do any alocate BLOCKS overlap?
 •do the pointers in the heap block point to valid heap addresses?
 return a value of 1 only if the heap is consistent. If any of the tests fail,
 an error message describing the error is printed and zero is returned.
+•Test DOUBLE WORD ALIGNMENT
+•Make sure the the free list has an end (block with next=NULL)
+
+Returns 1 if all tests pass and 0 if one of the tests fails.
 */
 int mm_check(){
 
@@ -435,27 +451,35 @@ int mm_check(){
     //check if every block in the free list is marked as free.
     //Traverse the free list and verify that the allocate bit in every block's
     //header is set to zero.
-    //DO pointers in the free list point to valid free blocks?
+    //Do pointers in the free list point to valid free blocks?
     for(bp = free_list_head; bp!=NULL; bp = (void*)GET(NEXT(bp))){
         if(GET_ALLOC(HDRP(bp)) && GET_ALLOC(FTRP(bp))){//checks validity of header and footer
-            printf("Allocated block with heap address %p is incorrectly placed in the free list\n", (unsigned int*)bp);
+            printf("Allocated block with heap address %p is incorrectly placed in the free list\n", bp);
             return 0;
         }
-        //also checks size for inconsistancies
+        //also checks size for inconsistencies
         if(GET_SIZE(HDRP(bp))!= GET_SIZE(FTRP(bp))){
-            printf("Free block invalid: size inconsistancies in header/footer at address %p",(unsigned int*)bp);
+            printf("Free block invalid: size inconsistencies in header/footer at address %p",bp);
             return 0;
         }
+
         ++free_cnt_1;
+
+        //If the iterations of this loop exceed the size of the free list, the free list is circular
+        //If a list is circular, infinite loops will occur
+        if(free_cnt_1 > free_list_size){//make sure list is not circular
+            printf("ERROR! Free list is circular. NO NULL PTR TO SHOW END OF LIST!\n");
+            return 0;
+        }
     }
 
     //this loops traverses the entire heap and checks multiple things
 
     for(bp = heap_listp; GET_SIZE(HDRP(bp))!=0; bp = NEXT_BLKP(bp)){
-        //are any contigues free blocks that escaped coalescing?
+        //are any contiguous free blocks that escaped coalescing?
         //checks if two free blocks are adjacent to each other
         if(last_free && !GET_ALLOC(HDRP(bp))){
-            printf("Free Blocks Escaped Coalescing at address %p\n", (unsigned int*)bp);
+            printf("Free Blocks Escaped Coalescing at address %p\n", bp);
             return 0;
         }
         last_free = !GET_ALLOC(HDRP(bp));
@@ -465,29 +489,26 @@ int mm_check(){
             ++free_cnt_2;
         }
 
-        //does the pointer point to a valid heap addresss?
-        if(bp  < mem_heap_lo() || bp > mem_heap_hi ){
+        //do the pointers in the heap block point to valid addresses within the heap?
+        if(bp  < mem_heap_lo() || bp > mem_heap_hi() ){
             //Pointer is outside the points of the heap
-            printf("\n", );
+            printf("Invalid address! Address %p lies out of heap range [%p,%p]\n",bp,mem_heap_lo(),mem_heap_hi() );
+            return 0;
         }
-
-
-    }
-
-    if(free_cnt_1!=free_cnt_2){//checks count of free blocks by traversing free list vs. traversing heap directly
-        printf("Not All Free blocks in free list %p\n", (unsigned int*)bp);
-        return 0;
+        //test if DOUBLE WORLD ALIGNMENT is maintained in the heap
+        if(((unsigned int)bp & 7)){//is the bottom three bits 0? (multiple of 8)
+            printf("Block at add address (%p) is NOT DOUBLE WORD ALIGNED!\n", bp);
+            return 0;
+        }
     }
 
     //is every free block ACTUALLY in the FREE LIST?
+    if(free_cnt_1!=free_cnt_2){//checks count of free blocks by traversing free list vs. traversing heap directly
+        printf("Not All Free blocks in free list\n");
+        return 0;
+    }
 
-
-    //Do any alocate BLOCKS overlap?
-
-    //do the pointers in the heap block point to valid heap addresses?
-
-
-    return 1; //If this point is reaached, the heap passed all the tests
+    return 1; //If this point is reached, the heap passed all the tests
 }
 
 
@@ -495,14 +516,15 @@ int mm_check(){
 /*------------------------------------*/
 
 /*  extend_heap
-•Extends heap.  calls mem_sbrk function to alloacate more space on the heap.
-returns a pointer to the new free block just created.  Also re-creates the epilogue block
-of the heap.
+•Extends heap. Calls mem_sbrk function to allocate more space on the heap.
+ Returns a pointer to the new free block just created.  Also re-creates the epilogue block
+ of the heap.
 */
 static void * extend_heap(size_t words){
     char * bp;
     size_t size;
 
+    //Maintain block alignment and minimum size.
     size = (words % 2) ? (words+1) * WSIZE: words*WSIZE;
     if(size < MIN_BLOCK_SIZE){
         size=MIN_BLOCK_SIZE;
@@ -525,8 +547,7 @@ FFA -> FA
 AFA -> AFA
 •this gets called whenever the heap is extended, or a block is freed (immediate coalescing)
 •updates free_list pointers and block headers/footers
-•returns a pointer to the updated free block
-
+•Returns a pointer to the updated free block
 */
 static void * coalesce(void * bp){
     size_t prev_alloc = GET_ALLOC(FTRP(PREV_BLKP(bp)));
@@ -574,8 +595,10 @@ static void * coalesce(void * bp){
     }
     return bp;
 }
+
 /*   del_free_list_node
-•deletes a node from the free list.  Updates next and prev pointers
+•deletes a node from the free list. Updates next and prev pointers by connecting
+the next and previous blocks together and decreases the size of the free list
 */
 static void del_free_list_node(void* bp){
     void * prev = (void*)GET(PREV(bp));
@@ -589,12 +612,14 @@ static void del_free_list_node(void* bp){
     if(next!=NULL){
         PUT(PREV(next), (unsigned int)prev);
     }
+
     --free_list_size;
 }
 
 /*   ins_free_list_node
 •inserts a node into the free list at the beginning
-•updates the free_list_head pointer to point to bp
+•updates the free_list_head pointer to point to bp and increases the
+size of the free list
 */
 static void ins_free_list_node(void *bp){
     if(free_list_head!=NULL){
@@ -605,6 +630,7 @@ static void ins_free_list_node(void *bp){
     free_list_head=bp;
     ++free_list_size;
 }
+
 /*   createFreeBlock
 •marks a block as free by updating header and footer, and then
 adds to the free list
@@ -620,6 +646,7 @@ static void createFreeBlock(void * bp,size_t size){
 newly created section is marked as allocated so that it doesn't get
 coalesced.
 •only_small_blk pointer is updated.
+This area helps prevent external fragmentation caused by small block splinters.
 */
 static void reserveOnlySmallBlock(){
     void* bp = mm_malloc(ONLY_SMALL_BLK_SIZE);
@@ -629,18 +656,17 @@ static void reserveOnlySmallBlock(){
 }
 
 /*  createAllocBlock
-•marks a block as allocated by updateing header and footer
+•marks a block as allocated by updating header and footer
 •deletes block from the free list
 */
 static void createAllocBlock(void * bp,size_t size){
     PUT(HDRP(bp),PACK(size,1));
     PUT(FTRP(bp),PACK(size,1));
     del_free_list_node(bp);
-
 }
 
 /*  createAllocBlockWithData
-•same as createAllocBlock, but also copys data from old block into new block
+•same as createAllocBlock, but also copies data from old block into new block
 •calls copy function
 */
 static void createAllocBlockWithData(void * bp,size_t size, void * data){
@@ -651,7 +677,7 @@ static void createAllocBlockWithData(void * bp,size_t size, void * data){
 }
 
 /* copy
-•copys contents from b1 to b2
+•copies contents from b1 to b2
 •stops at FTRP(b2)
 •used to copy data from one block to another (realloc)
 */
@@ -687,7 +713,6 @@ static void * find_fit(size_t asize){
                     cur_size=tmp_size;
                     ret_loc = bp;
                 }
-
             }
         }
         return ret_loc;
@@ -702,7 +727,6 @@ static void * find_fit(size_t asize){
         }
         return NULL;
     }
-
 }
 
 /*   place
@@ -711,8 +735,7 @@ findfit.
 •if the block is large enough (the remaining part of the block
 is >= MIN_BLOCK_SIZE), it is split into a free block and and allocated
 block.
-•Otherwise, the entire block is alloacted.
-
+•Otherwise, the entire block is allocated.
 */
 static void place(void* bp, size_t asize){
     size_t csize = GET_SIZE(HDRP(bp));
@@ -752,5 +775,4 @@ static void place_into_allocated_block(void* bp, size_t asize){
     printf("Placed %i\n",asize);
     printheap();
     #endif
-
 }
