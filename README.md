@@ -1,8 +1,9 @@
-Code in mm.c written by:
-Abraham McIlvaine
-Benjamin Steenkamer
+**Code in mm.c written by:  
+Abraham McIlvaine  
+Benjamin Steenkamer**  
+All other files provided by class professor.  
 
-For CPEG 361 - Operating Systems
+CPEG 361 - Operating Systems
 Spring 2017, University of Delaware
 
 #####################################################################
